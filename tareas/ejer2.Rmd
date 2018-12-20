@@ -1,0 +1,103 @@
+---
+title: "ejercicio2"
+author: "Abraham Nieto 51556"
+date: "20 de septiembre de 2018"
+output: html_document
+---
+
+Leemos datos de diabetes..
+
+```{r}
+
+diab<-read.csv('/home/abraham/FE2018/Data4Analysis/d4a_diabetes_data.csv')
+
+data<-as.numeric(diab$measurement)
+
+```
+
+
+```{r invgamma, include=FALSE}
+if(!require("devtools")){
+  library("devtools")
+devtools::install_github("dkahle/invgamma")}
+library("invgamma")
+```
+
+```{r}
+gamma.posterior.kernel <- function(pars,X,hiperpar){
+  # -log posterior para \pi(alpha,scale=beta)
+  # X - data
+  # alpha - forma
+  # beta - escala
+  alpha <- pars[1]; beta <- pars[2]
+  a_alpha <- hiperpar[1]; b_alpha <- hiperpar[2]
+  a_beta <- hiperpar[3]; b_beta <- hiperpar[4]
+  -(sum(dgamma(X,alpha,scale=beta,log=TRUE)) 
+    + dgamma(alpha,a_alpha,scale=b_alpha,log=TRUE)
+    + dinvgamma(beta,a_beta,b_beta,log=TRUE) )
+}
+```
+
+
+```{r}
+library("bayesAB")
+```
+
+
+---
+
+**\textcolor{orange}{Creencia inicial (prior) para }** $\alpha$
+
+```{r prior.alpha, echo=FALSE}
+a_alpha <- 3
+b_alpha <- 6
+plotInvGamma(a_alpha, b_alpha)
+```
+
+---
+
+**\textcolor{orange}{Creencia inicial (prior) para }** $\beta$
+
+```{r prior.beta, echo=FALSE}
+a_beta <- 10
+b_beta <- 12
+plotGamma(a_beta, b_beta)
+```
+
+---
+
+
+1. Evaluar $\pi(\alpha,\beta|x_1,\ldots,x_n)$
+
+```{r}
+alphax<-1.5
+betax<-12/11
+eval<-gamma.posterior.kernel(c(alphax,betax),data,c(a_alpha,b_alpha,a_beta,b_beta))
+
+eval
+
+```
+
+2. Visualizar $\pi(\alpha,\beta|x_1,\ldots,x_n)$
+
+
+```{r}
+#y<-dgamma(data,alpha,scale=beta,log=FALSE)
+x<-data
+curve(dgamma(x,alphax,scale=betax,log=FALSE),from=0, to=15, main="Gamma
+distribution")
+
+```
+
+
+3. Carcular 
+$$
+\hat{\alpha},\hat{\beta}
+=
+\arg\max_{\alpha,\beta \in \mathbb{R}_{+}^{2}}\pi(\alpha,\beta|x_1,\ldots,x_n).$$
+
+```{r map}
+pars <- c(alphax,betax); hiperpar <- c(a_alpha,b_alpha,a_beta,b_beta)
+gamma_map <- nlm(gamma.posterior.kernel, pars, X=data, hiperpar, hessian=TRUE)
+gamma_map$estimate
+```

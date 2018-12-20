@@ -1,0 +1,23 @@
+
+model
+{
+#Verosimilitud
+for (i in 1:n){
+	y[i] ~ dbern(p[i])
+	logit(p[i])<-alpha[seg[i]]+beta1[seg[i]]*x1[1]+beta2[seg[i]]*x2[i]+beta3[seg[i]]*x3[i]+beta4[seg[i]]*x4[i]+beta5[seg[i]]*x5[i]+beta6[seg[i]]*x6[i]
+}
+#Priors
+for (j in 1:m){
+  alpha[j] ~ dnorm(0,0.001)
+  beta1[j] ~ dnorm(0,0.001)
+  beta2[j] ~ dnorm(0,0.001)
+  beta3[j] ~ dnorm(0,0.001)
+  beta4[j] ~ dnorm(0,0.001)
+  beta5[j] ~ dnorm(0,0.001)
+  beta6[j] ~ dnorm(0,0.001)
+}
+
+#Predicción
+for (i in 1:n) { yf1[i] ~ dbern(p[i]) }
+
+}

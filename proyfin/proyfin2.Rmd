@@ -1,0 +1,199 @@
+---
+title: "ent2"
+author: "Abraham Nieto 51556"
+date: "15 de noviembre de 2018"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+library(readr)
+library(stringr)
+library(lubridate)
+library(ggplot2)
+library(Amelia)
+```
+
+```{r}
+#-Working directory-
+wdir<-"/home/abraham/FE2018/Data4Analysis/"
+setwd(wdir)
+```
+
+
+```{r}
+
+frax<-read.csv("d4a_fraud_data.csv",header = TRUE)
+frax<-frax%>%select(gender,state,cardholder,balance,numTrans,numIntlTrans,creditLine,fraudRisk)
+head(frax)
+
+```
+
+
+Como se planteó en la primera entrega, la detección de fraude es uno de los eventos más difíciles de detectar debido a que los fraudes son eventos de baja densidad, es decir, si planteamos el evento de fraude binario 0.-No es fraude, 1.- fraude la proporción de 1's con respecto a los 0's es sigificativamente menor, otra forma de verlo es que tenemos un problema de clases no balanceadas lo cual hace más difícil encontrar el evento de interés que este caso es el fraude.
+Haciendo una exploración a los datos en particular a la variable respuesta que en este caso es fraudRisk binaria podemos observar,haciendo un resumen estadístico de la variable, que la media es 0.0658 lo que significa que la densidad de fraudes en la base es casi de un 6.6%, lo que significa que para encontrar un caso de fraude tendríamos que revisar al menos 15 registros, esto suponiendo que los revisamos al azar.
+Entonces el objetivo es calcular la propensión de que a cada cliente le hayan hecho fraude, para esto debemos comenzar analizando las distintas variables y encontrar aquellas que nos puedan  servir para discriminar los casos de fraude y los genuinos:
+
+#EDA
+
+```{r}
+summary(frax)
+
+```
+
+
+
+Primero realizamos un mapa de la información para detectar si existen valores ausentes den la base que debamos imputar, lo cual no es necesario ya que el mapa muestra que no existen valores ausentes.
+```{r}
+missmap(frax)
+```
+Revisando la variable balance(Balance de la cuenta en USD al termino de un periodo dado) en contraste con la variable respuesta fraudRisk que los casos d fraude se dan el 75% de las veces donde los saldos de los clientes son mayores a 7500 USD aproximadamente, mientras que en los casos genuinos este saldo se encuentra en la cuarta parte de los clientes, es claro que esta variable funciona para contrastar los casos.
+
+```{r}
+ggplot(frax, aes(x=as.character(fraudRisk), y=balance)) +
+  geom_boxplot() +
+  scale_fill_manual(values=c("darkcyan", "magenta")) +
+  ggtitle("boxplot de Fraudes")
+```
+Revisando la variable numTrans(Numero de transacciones domesticas en un periodo dado) en contraste con la variable respuesta fraudRisk que los casos de fraude se dan el 50% de las veces donde el clinte tiene más de 50 transacciones y en los casos genuinos este número de transacciones aparece en menos del 75% de los casos.
+
+```{r}
+ggplot(frax, aes(x=as.character(fraudRisk), y=numTrans)) +
+  geom_boxplot() +
+  scale_fill_manual(values=c("darkcyan", "magenta")) +
+  ggtitle("boxplot de Fraudes")
+```
+Revisando la variable numTrans(Numero de transacciones domesticas en un periodo dado) en contraste con la variable respuesta fraudRisk que los casos de fraude se dan el 50% de las veces donde el clinte tiene más de 50 transacciones y en los casos genuinos este número de transacciones aparece en menos del 75% de los casos.
+
+```{r}
+ggplot(frax, aes(x=as.character(fraudRisk), y=creditLine)) +
+  geom_boxplot() +
+  scale_fill_manual(values=c("darkcyan", "magenta")) +
+  ggtitle("boxplot de Fraudes")
+```
+
+Revisando la variable numIntlTrans(Numero de transacciones internacionales en un periodo dado) en contraste con la variable respuesta fraudRisk vemos que la distribución es casi igual lo cual nos dice que la variable no sirve para discriminar las clases de fraude.
+
+```{r}
+ggplot(frax, aes(x=as.character(fraudRisk), y=numIntlTrans)) +
+  geom_boxplot() +
+  scale_fill_manual(values=c("darkcyan", "magenta")) +
+  ggtitle("boxplot de Fraudes")
+```
+
+
+```{r}
+ggplot(frax, aes(x=as.integer(state), fill=as.character(fraudRisk))) +
+  geom_bar() +
+  scale_fill_manual(values=c("darkcyan", "magenta")) +
+  ggtitle("boxplot de Fraudes")
+```
+
+```{r}
+ggplot(frax, aes(x=as.character(gender), fill=as.character(fraudRisk))) +
+  geom_bar() +
+  scale_fill_manual(values=c("darkcyan", "magenta")) +
+  ggtitle("boxplot de Fraudes")
+```
+
+
+```{r}
+ggplot(frax, aes(x=as.integer(cardholder), fill=as.character(fraudRisk))) +
+  geom_bar() +
+  scale_fill_manual(values=c("darkcyan", "magenta")) +
+  ggtitle("boxplot de Fraudes")
+```
+
+```{r}
+ggplot(frax, aes(x=as.character(fraudRisk), y=creditLine)) +
+  geom_boxplot() + facet_grid(~as.character(cardholder))+
+  scale_fill_manual(values=c("darkcyan", "magenta")) +
+  ggtitle("boxplot de Fraudes")
+```
+
+```{r}
+library(corrplot)
+M <- cor(frax)
+corrplot(M, method = "circle")
+```
+
+
+De acuerdo con los comentarios del profesor vamos a a segmentar la variable balance y encontramos los siguiente:
+```{r}
+x <- frax$balance  # some data
+quintiles <- quantile(x, probs=seq(0.2, 1, by = 0.2))
+new<-cut(x, quintiles, ordered = TRUE,label=1:4)#quantile(x,quintiles)
+new[is.na(new)] <- 1
+frax$balance_q<-new
+```
+
+```{r}
+library(dplyr)
+frax%>%group_by(balance_q)%>%summarise(ctes=n(),tasa_f=round(mean(fraudRisk)*100,2),total_f=sum(fraudRisk))%>%
+  mutate(proporcion_f=round(total_f/sum(total_f)*100,2),proporcion_ctes=round(ctes/sum(ctes)*100,2))
+
+
+```
+Después de segmentar la variable balance por cuartiles podemos observar con la ayuda de la tabla anterior que el 73% del fraude se concentra en el segmento 4 que contiene tan solo el 18% de los clientes, recordar que el segmento 4 son aquellos clientes con un balance mayor a los 7 mil dólares, también es importante notar que la tasa de fraude en este segmento es de más del 24% lo que nos indica que es 4 veces mayor a la densidad original que es del 6%.
+
+Ahora si revisamos la variable creditLine o tipo de línea de crédito encontramos los siguiente
+```{r}
+x <- frax$creditLine  # some data
+quintiles2 <- quantile(x, probs=seq(0, 1, by = 0.25))
+new2<-cut(x, quintiles2, ordered = TRUE,label=1:4)#quantile(x,quintiles)
+new2[is.na(new2)] <- 1
+frax$credl_q<-new2
+```
+
+```{r}
+frax%>%group_by(credl_q)%>%summarise(ctes=n(),tasa_f=round(mean(fraudRisk)*100,2),total_f=sum(fraudRisk))%>%
+  mutate(proporcion_f=round(total_f/sum(total_f)*100,2),proporcion_ctes=round(ctes/sum(ctes)*100,2))
+
+```
+
+Haciendo 4 segmentos en los tipos de líneas de créditos podemos observar que el segemento 4 que se refiere del tipo 11 en adelante contiene el 70% de los clientes fraudulentos y representa casi el 23% de los clientes totales, además la tasa de fraude en este segmento es del 18.7% lo cual es más de 3 veces mayor que la densidad original de de 6% entonces es 3 veces más probable que haya clientes o casos de fraude en este segmento, por otro lado dentro de la segementación de esta varible el segmento 3 que representa los tipos entre 6 y 11  tiene una tasa de fraude de 4.76% la cual es menor que la densidad original al iguial que los segmentos 1 y 2 con tasas de fraude de .82% y 2.05% respectivamente.
+
+Ahora dado que nuestro objetivo es construir un modelo de propensión de fraude hace todo el sentido mezclar los segmentos de ambas variables de tal forma que para tener mayor asertividad en la propensión hagamos 1 modelo para cada segmento utilizando el resto de las variables como explicativas.
+
+Cruzando los distintos segmentos tenemos los siguientes resultados:
+```{r}
+ggplot(frax, aes(x=as.character(fraudRisk), y=balance)) +
+  geom_boxplot() + facet_grid(~credl_q)+
+  scale_fill_manual(values=c("darkcyan", "magenta")) +
+  ggtitle("boxplot de Fraudes")
+```
+
+Si observamos los diagramas de caja y brazos de los 4 segmentos de los tipos de lineas de créditto a través de su balance o saldo vemos que para el segmento 4 la diferencia entre las distribuciones de balance de los casos de fraude y no fraude se diferencian de forma muy clara, lo cual hace pensar que en este segmento sería más sencillo encontrar un modelo que discrimine a los cientes más propensos a ser casos de fraude, en los primeros 2 segemetos pudiera ser más complejo dado que las cajas se traslapan.
+
+##Segmentos
+Análizando los segmentos mezclados de las variables balance y creditLine encontramos que...
+
+```{r}
+seg<-frax%>%group_by(balance_q,credl_q)%>%summarise(ctes=n(),tasa_f=round(mean(fraudRisk)*100,2),
+                                               total_f=sum(fraudRisk))
+seg%>%mutate(proporcion_f=round(total_f/6058*100,2),
+proporcion_ctes=round(ctes/100000*100,2))%>%arrange(desc(proporcion_f))
+
+```
+
+El segmento (4,4) (balance,creditLine) contiene el 58% de los casos de fraude mientras que su densidad de fraude es de 38.43%, este segemento es donde de manera más sencilla se pueden encontrar los casos fruadulentos, luego los segmentos (4,3) y (3,4) representan casi el 21% del total de los casos de fraude con una tasa de casos de fraude de más del 10% es decir con estos 3 segmentos se cubre casi el 79% de los casos fraudulentos, lo que estamos haciendo con estos cruces de segmentos es crear categorías de mayor a menor "facilidad" para detectar los casos, entonces la idea es que los modelos que construyamos encuentren probabilidades más asertivas en estos 2 segementos y obviamente mucho menores en el resto de ellos.
+En términos de negocio queremos encontrar  3 tipos de segmentos, digamos alto, medio y bajo donde podamos saber que la probabilidad de encontrar casosde fraude va de mayor a menor, de tal forma que podamos atacar este problema de detección en cada uno de ellos.
+
+Por tanto, se definen los siguientes segmentos:
+Alto= {segmento (4,4)}
+Medio={segmento (4,3), segmento (3,4)}
+Bajo={todos los segmentos}-{Alto,Medio}
+
+```{r}
+frax$Segmento<-ifelse(frax$balance_q==4 & frax$credl_q==4,"Alto",
+                      ifelse(as.numeric(frax$balance_q)*as.numeric(frax$credl_q)==12,"Medio","Bajo"))
+```
+
+```{r}
+frax%>%group_by(Segmento)%>%summarise(ctes=n(),tasa_f=round(mean(fraudRisk)*100,2),total_f=sum(fraudRisk))%>%
+  mutate(proporcion_f=round(total_f/sum(total_f)*100,2),proporcion_ctes=round(ctes/sum(ctes)*100,2))
+```
+Finalmente con estos 3 segmentos podemos observar que para el segmento Alto e detecta el 58% delos casos de fraude analizando sólo el 9% de los clientes, para el Medio se detecta el 21% de los fraudes con el 12.2% de los clientes ambos con densidades o tasas de fraude mayores a la original, para el segmento más bajo tiene una densidad del 1.6%.
+
+
+

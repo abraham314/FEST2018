@@ -1,0 +1,106 @@
+---
+title: "ejergam"
+author: "Abraham Nieto 51556"
+date: "17 de septiembre de 2018"
+output: html_document
+---
+```{r}
+diabetes <- read.csv("./Data4Analysis/d4a_diabetes_data.csv",header = TRUE)
+data <- as.numeric(diabetes[which( diabetes$code==62 & as.numeric(diabetes$measurement) < 350 ), "measurement"])
+```
+```{r}
+plot(density(data),lwd=2,col="blue",main="",ylab="Densidad (no parametrica)",xlab="x")
+```
+
+```{r}
+gamma.loglik <- function(pars,X){
+  # log likelihood para Gamma(alpha,scale=beta)
+  # X - data
+  # alpha - forma
+  # beta - escala
+  alpha <- pars[1]; beta <- pars[2]
+  -sum(dgamma(X,alpha,scale=beta,log=TRUE))
+}
+```
+
+```{r mle, include=TRUE}
+pars <- c(70,12); gamma_mle <- nlm(gamma.loglik, pars, X=data, hessian=TRUE)
+gamma_mle$estimate
+```
+
+```{r}
+alpha.hat <- gamma_mle$estimate[1]; beta.hat <- gamma_mle$estimate[2]
+alpha.hat
+beta.hat
+```
+```{r loglik, echo=FALSE}
+L <- 41; M <- matrix(0,nrow=L,ncol=L)
+alpha.grid <- seq(0.5,12,length=L); beta.grid <- seq(0.5,10,length=L)
+for(i in 1:L){
+  for(j in 1:L){
+    M[i,j] <- (-1)*gamma.loglik(c(alpha.grid[i],beta.grid [j]),data)
+  }}
+persp(alpha.grid, beta.grid, M, theta = 30, phi = 30, expand = 0.5, col = "lightblue")
+```
+
+```{r contour, echo=TRUE}
+contour(alpha.grid,beta.grid,M, xlab="alpha",ylab="theta")
+```
+
+```{r}
+contour(alpha.grid,beta.grid,M,levels=c(-650,-600,-550,-500,-450,-400,-350,-300,-250,-200,-150,-100,-50,-25),col="blue",lwd=2,xlab="alpha",ylab="theta")
+```
+
+```{r hessian, include=FALSE}
+H <- gamma_mle$hessian
+gamma_mle_cov <- solve(H)
+# Covarianzas y Errores estandar de los estimadores
+gamma_mle_cov
+# Marginales - error cuadratico medio
+gamma_mle_se <- sqrt(diag(gamma_mle_cov))    
+```
+
+
+```{r se, echo=TRUE}
+alpha_hat_se <- gamma_mle_se[1]; beta_hat_se <-gamma_mle_se[2]
+alpha_hat_se
+beta_hat_se
+```
+```{r fisher, include+TRUE}
+H <- gamma_mle$hessian
+gamma_mle_cov <- solve(H)
+gamma_mle_cov
+```
+
+```{r reploglik,include+TRUE}
+gamma.loglik.rep <- function(pars,X){
+  # log likelihood for Gamma(mu,sigma^2)
+  # X - data
+  # mu - media
+  # s2 - varianza
+  mu <- pars[1]; s2 <- pars[2]
+  alpha <- mu^2/s2; beta <- s2/mu
+  -sum(dgamma(X,alpha,scale=beta,log=TRUE))
+}
+```
+
+```{r}
+if(!require("mvtnorm")){install.packages("mvtnorm")}
+library("mvtnorm")
+
+Mu <- gamma_mle$estimate
+N <- matrix(0,nrow=L,ncol=L)
+for(i in 1:L){
+  for(j in 1:L){
+    N[i,j] <- -dmvnorm(c(alpha.grid[i],beta.grid[j]),
+                       Mu,gamma_mle_cov,log=TRUE)
+  }
+}
+```
+
+
+```{r countour2, echo=FALSE}
+contour(alpha.grid,beta.grid,M,col="blue",lwd=2,xlab="alpha",ylab="theta")
+contour(alpha.grid,beta.grid,N,
+        col="red",lty=2,add=TRUE)  
+```

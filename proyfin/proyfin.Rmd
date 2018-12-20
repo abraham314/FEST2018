@@ -1,0 +1,109 @@
+---
+title: "proyfn"
+author: "Abraham Nieto 51556"
+date: "13 de noviembre de 2018"
+output: html_document
+---
+
+```{r}
+#-Working directory-
+library(tidyverse)
+library(readr)
+library(stringr)
+library(lubridate)
+library(ggplot2)
+library(Amelia)
+wdir<-"/home/abraham/FE2018/Data4Analysis/"
+setwd(wdir)
+frax<-read.csv("d4a_fraud_data.csv",header = TRUE)
+frax<-frax%>%select(gender,state,cardholder,balance,numTrans,numIntlTrans,creditLine,fraudRisk)
+head(frax)
+```
+
+Como se planteó en la primera entrega, la detección de fraude es uno de los eventos más difíciles de detectar debido a que los fraudes son eventos de baja densidad, es decir, si planteamos el evento de fraude binario 0.-No es fraude, 1.- fraude la proporción de 1's con respecto a los 0's es sigificativamente menor, otra forma de verlo es que tenemos un problema de clases no balanceadas lo cual hace más difícil encontrar el evento de interés que este caso es el fraude.
+Haciendo una exploración a los datos en particular a la variable respuesta que en este caso es fraudRisk binaria podemos observar,haciendo un resumen estadístico de la variable, que la media es 0.0658 lo que significa que la densidad de fraudes en la base es casi de un 6.6%, lo que significa que para encontrar un caso de fraude tendríamos que revisar al menos 15 registros, esto suponiendo que los revisamos al azar.
+Entonces el objetivo es calcular la propensión de que a cada cliente le hayan hecho fraude, para esto debemos comenzar analizando las distintas variables y encontrar aquellas que nos puedan  servir para discriminar los casos de fraude y los genuinos:
+
+#EDA
+
+```{r}
+summary(frax)
+
+```
+
+
+
+Primero realizamos un mapa de la información para detectar si existen valores ausentes den la base que debamos imputar, lo cual no es necesario ya que el mapa muestra que no existen valores ausentes.
+```{r}
+missmap(frax)
+```
+Revisando la variable balance(Balance de la cuenta en USD al termino de un periodo dado) en contraste con la variable respuesta fraudRisk que los casos d fraude se dan el 75% de las veces donde los saldos de los clientes son mayores a 7500 USD aproximadamente, mientras que en los casos genuinos este saldo se encuentra en la cuarta parte de los clientes, es claro que esta variable funciona para contrastar los casos.
+
+```{r}
+ggplot(frax, aes(x=as.character(fraudRisk), y=balance)) +
+  geom_boxplot() +
+  scale_fill_manual(values=c("darkcyan", "magenta")) +
+  ggtitle("boxplot de Fraudes")
+```
+Revisando la variable numTrans(Numero de transacciones domesticas en un periodo dado) en contraste con la variable respuesta fraudRisk que los casos de fraude se dan el 50% de las veces donde el clinte tiene más de 50 transacciones y en los casos genuinos este número de transacciones aparece en menos del 75% de los casos.
+
+```{r}
+ggplot(frax, aes(x=as.character(fraudRisk), y=numTrans)) +
+  geom_boxplot() +
+  scale_fill_manual(values=c("darkcyan", "magenta")) +
+  ggtitle("boxplot de Fraudes")
+```
+Revisando la variable numTrans(Numero de transacciones domesticas en un periodo dado) en contraste con la variable respuesta fraudRisk que los casos de fraude se dan el 50% de las veces donde el clinte tiene más de 50 transacciones y en los casos genuinos este número de transacciones aparece en menos del 75% de los casos.
+
+```{r}
+ggplot(frax, aes(x=as.character(fraudRisk), y=creditLine)) +
+  geom_boxplot() +
+  scale_fill_manual(values=c("darkcyan", "magenta")) +
+  ggtitle("boxplot de Fraudes")
+```
+
+Revisando la variable numIntlTrans(Numero de transacciones internacionales en un periodo dado) en contraste con la variable respuesta fraudRisk vemos que la distribución es casi igual lo cual nos dice que la variable no sirve para discriminar las clases de fraude.
+
+```{r}
+ggplot(frax, aes(x=as.character(fraudRisk), y=numIntlTrans)) +
+  geom_boxplot() +
+  scale_fill_manual(values=c("darkcyan", "magenta")) +
+  ggtitle("boxplot de Fraudes")
+```
+
+
+```{r}
+ggplot(frax, aes(x=as.integer(state), fill=as.character(fraudRisk))) +
+  geom_bar() +
+  scale_fill_manual(values=c("darkcyan", "magenta")) +
+  ggtitle("boxplot de Fraudes")
+```
+
+```{r}
+ggplot(frax, aes(x=as.character(gender), fill=as.character(fraudRisk))) +
+  geom_bar() +
+  scale_fill_manual(values=c("darkcyan", "magenta")) +
+  ggtitle("boxplot de Fraudes")
+```
+
+
+```{r}
+ggplot(frax, aes(x=as.integer(cardholder), fill=as.character(fraudRisk))) +
+  geom_bar() +
+  scale_fill_manual(values=c("darkcyan", "magenta")) +
+  ggtitle("boxplot de Fraudes")
+```
+
+```{r}
+ggplot(frax, aes(x=as.character(fraudRisk), y=creditLine)) +
+  geom_boxplot() + facet_grid(~as.character(cardholder))+
+  scale_fill_manual(values=c("darkcyan", "magenta")) +
+  ggtitle("boxplot de Fraudes")
+```
+
+```{r}
+library(corrplot)
+M <- cor(frax)
+corrplot(M, method = "circle")
+```
+
